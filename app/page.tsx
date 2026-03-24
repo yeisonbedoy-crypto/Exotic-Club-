@@ -340,17 +340,16 @@ export default function POSTerminal() {
               )}
             </div>
 
-            {/* Input Concepto (Opcional, Solo para Otro) */}
-            {productoSeleccionado?.tipo === 'otro' && (
+            {/* Input Concepto (Opcional, para todas las opciones) */}
+            {productoSeleccionado && (
               <div className="mb-4 animate-fade-in">
                 <input 
                   type="text" 
-                  autoFocus
-                  placeholder="✏️ ¿Qué artículo extra vendes? (Ej: Papel OCB...)" 
+                  placeholder="✏️ Concepto / Nota Opcional (Ej: Grinder, CLIPPER...)" 
                   value={concepto}
                   onChange={(e) => setConcepto(e.target.value)}
-                  onFocus={() => { if(campoActivo === 'peso') setCampoActivo('precio'); }} // Normalmente se cobra por precio
-                  className="w-full bg-stone-900 border border-emerald-500/50 rounded-xl p-3 text-sm text-stone-200 focus:ring-2 focus:ring-emerald-500 outline-none transition-all placeholder:text-stone-500 shadow-inner"
+                  onFocus={() => { if(campoActivo === 'peso') setCampoActivo('precio'); }}
+                  className="w-full bg-stone-900 border border-emerald-500/30 rounded-xl p-3 text-sm text-stone-200 focus:ring-2 focus:ring-emerald-500 outline-none transition-all placeholder:text-stone-500 shadow-inner"
                   maxLength={60}
                 />
               </div>
