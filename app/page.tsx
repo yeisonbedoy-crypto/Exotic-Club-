@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
+import Link from 'next/link';
 
 type Producto = {
   id: string;
@@ -92,10 +93,16 @@ export default function POSTerminal() {
 
   return (
     <div className="min-h-[100dvh] bg-stone-950 text-stone-100 p-4 font-sans flex flex-col selection:bg-emerald-500/30">
-      <header className="mb-4">
+      <header className="mb-4 flex flex-row justify-between items-center">
         <h1 className="text-3xl font-black bg-gradient-to-r from-emerald-400 to-green-600 bg-clip-text text-transparent">
           CLUB POS Terminal
         </h1>
+        <Link href="/admin" className="px-5 py-2.5 bg-stone-800 hover:bg-stone-700 active:scale-95 transition-all rounded-xl font-medium text-stone-300 flex items-center gap-2 border border-stone-700">
+          <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+            <path fillRule="evenodd" d="M10 5a1 1 0 011 1v3h3a1 1 0 110 2h-3v3a1 1 0 11-2 0v-3H6a1 1 0 110-2h3V6a1 1 0 011-1z" clipRule="evenodd" />
+          </svg>
+          Nuevo Producto
+        </Link>
       </header>
 
       <div className="flex-1 grid grid-cols-1 lg:grid-cols-12 gap-6 pb-20 lg:pb-0">
