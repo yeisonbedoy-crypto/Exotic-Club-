@@ -17,19 +17,28 @@ BEGIN
     END IF;
 END $$;
 
--- 3. Recrear Triggers (cambiando 'cantidad' por 'cantidad_real')
--- Función para restar stock de forma automática
-CREATE OR REPLACE FUNCTION restar_stock_venta()
+-- 3. Actualizar Triggers para que usen 'cantidad_real' en lugar de 'cantidad'
+
+-- A) Función para restar stock de forma automática (Actualizamos la tuya existente: actualizar_stock_venta)
+CREATE OR REPLACE FUNCTION actualizar_stock_venta()
 RETURNS TRIGGER AS $$
 BEGIN
     UPDATE productos
-    SET stock = stock - NEW.cantidad_real
+    SET stock = stock - NEW.cantidad_real,
+        updated_at = timezone('utc'::text, now())
     WHERE id = NEW.producto_id;
     RETURN NEW;
 END;
 $$ LANGUAGE plpgsql;
 
--- Función para devolver el stock al anular / borrar una venta
+-- Nos aseguramos de que el trigger apunte a esta función correctamente
+DROP TRIGGER IF EXISTS trigger_restar_stock ON ventas;
+CREATE TRIGGER trigger_restar_stock
+AFTER INSERT ON ventas
+FOR EACH ROW
+EXECUTE FUNCTION actualizar_stock_venta();
+
+-- B) Función para devolver el stock al anular / borrar una venta
 CREATE OR REPLACE FUNCTION revertir_stock_borrado()
 RETURNS TRIGGER AS $$
 BEGIN

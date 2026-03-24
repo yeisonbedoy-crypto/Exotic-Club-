@@ -190,6 +190,23 @@ export default function AdminPage() {
     }
   };
 
+  const modificarStockAbsoluto = async (id: string, nuevoStock: number) => {
+    if (nuevoStock < 0 || isNaN(nuevoStock)) return;
+    
+    // UI Optimistic Update
+    setProductos(prev => prev.map(p => p.id === id ? { ...p, stock: nuevoStock } : p));
+    
+    const { error } = await supabase
+      .from('productos')
+      .update({ stock: nuevoStock, updated_at: new Date().toISOString() })
+      .eq('id', id);
+
+    if (error) {
+       alert('Error actualizando stock de forma manual');
+       cargarInventario(); // Revertir si hay error
+    }
+  };
+
   const toggleActivo = async (id: string, estadoActual: boolean) => {
     setProductos(prev => prev.map(p => p.id === id ? { ...p, activo: !estadoActual } : p));
     await supabase.from('productos').update({ activo: !estadoActual }).eq('id', id);
@@ -442,8 +459,21 @@ export default function AdminPage() {
                           -
                         </button>
                         <div className="flex flex-col items-center">
-                          <span className={`text-2xl font-black font-mono ${p.stock < 10 ? 'text-rose-400' : 'text-stone-200'}`}>{p.stock}</span>
-                          <span className="text-[10px] font-medium text-stone-500 uppercase tracking-widest">{p.categoria === 'peso' ? 'gramos' : 'unidades'}</span>
+                          <input 
+                            type="number" 
+                            step="0.01"
+                            defaultValue={p.stock} 
+                            onBlur={(e) => {
+                              const v = parseFloat(e.target.value);
+                              if (!isNaN(v) && v !== p.stock && v >= 0) {
+                                modificarStockAbsoluto(p.id, v);
+                              } else {
+                                e.target.value = p.stock.toString(); // Devolver visualmente al original si hay error o no cambia
+                              }
+                            }}
+                            className={`w-28 text-center bg-transparent border-b-2 focus:border-emerald-500 focus:outline-none transition-all pb-1 text-2xl font-black font-mono ${p.stock < 10 ? 'text-rose-400 border-rose-500/30' : 'text-stone-200 border-stone-700'}`}
+                          />
+                          <span className="text-[10px] font-medium text-stone-500 uppercase tracking-widest mt-1">{p.categoria === 'peso' ? 'gramos' : 'unidades'}</span>
                         </div>
                         <button onClick={() => modificarStock(p.id, 1, p.stock)} className="w-12 h-12 rounded-lg bg-stone-800 active:bg-emerald-500/20 active:text-emerald-400 text-stone-300 font-bold text-xl active:scale-95 transition-all outline-none touch-manipulation">
                           +
