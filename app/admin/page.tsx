@@ -121,8 +121,19 @@ export default function AdminPage() {
 
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
-    // Credenciales (pueden ser movidas a process.env)
-    if (usuarioInput.toLowerCase() === 'admin' && passInput === 'club123') {
+    
+    // Diccionario de usuarios permitidos { 'usuario': 'contraseña' }
+    // Puedes añadir, quitar o modificar usuarios fácilmente aquí
+    const usuariosPermitidos: Record<string, string> = {
+      'admin': 'club123',
+      'yeison': 'clave2026',
+      'encargado1': '123456'
+    };
+
+    const usuarioIntroducido = usuarioInput.toLowerCase();
+
+    // Verificamos si el usuario introducido existe en la lista y la contraseña coincide
+    if (usuariosPermitidos[usuarioIntroducido] === passInput) {
       setIsAuthenticated(true);
       setAuthError(false);
     } else {
