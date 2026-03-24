@@ -32,7 +32,8 @@ export default function AdminPage() {
 
   // Formulario Producto
   const [nombre, setNombre] = useState('');
-  const [tipo, setTipo] = useState<Producto['tipo']>('flor');
+  const [tipo, setTipo] = useState<Producto['tipo']>('weed');
+  const [subtipo, setSubtipo] = useState<Producto['subtipo']>(null);
   const [categoria, setCategoria] = useState<Producto['categoria']>('peso');
   const [precio, setPrecio] = useState('');
   const [stock, setStock] = useState('');
@@ -80,7 +81,7 @@ export default function AdminPage() {
 
     setSaving(true);
     const { error } = await supabase.from('productos').insert([{
-      nombre, tipo, categoria,
+      nombre, tipo, subtipo, categoria,
       precio: Number(precio),
       stock: Number(stock),
       activo: true
@@ -90,7 +91,7 @@ export default function AdminPage() {
       alert('❌ Error al crear el producto');
     } else {
       alert('✅ Producto guardado');
-      setNombre(''); setPrecio(''); setStock('');
+      setNombre(''); setPrecio(''); setStock(''); setSubtipo(null);
       cargarInventario();
     }
     setSaving(false);
@@ -235,9 +236,9 @@ export default function AdminPage() {
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <label className="block text-sm font-medium text-stone-400 mb-1">Cepa/Tipo</label>
-                    <select value={tipo} onChange={e => setTipo(e.target.value as Producto['tipo'])} className="w-full bg-stone-950 border border-stone-800 rounded-xl p-4 text-white focus:ring-2 focus:ring-emerald-500 outline-none h-14">
-                      <option value="flor">Flor</option>
-                      <option value="resina">Extracción</option>
+                    <select value={tipo} onChange={e => { setTipo(e.target.value as Producto['tipo']); if(e.target.value !== 'extraccion') setSubtipo(null); }} className="w-full bg-stone-950 border border-stone-800 rounded-xl p-4 text-white focus:ring-2 focus:ring-emerald-500 outline-none h-14">
+                      <option value="weed">Weed</option>
+                      <option value="extraccion">Extracción</option>
                       <option value="bebida">Bebida</option>
                       <option value="otro">Otro</option>
                     </select>
@@ -250,6 +251,19 @@ export default function AdminPage() {
                     </select>
                   </div>
                 </div>
+
+                {tipo === 'extraccion' && (
+                  <div>
+                    <label className="block text-sm font-medium text-stone-400 mb-1">Subtipo Extra.</label>
+                    <select required value={subtipo || ''} onChange={e => setSubtipo(e.target.value as Producto['subtipo'])} className="w-full bg-stone-950 border border-stone-800 rounded-xl p-4 text-white focus:ring-2 focus:ring-emerald-500 outline-none h-14">
+                      <option value="" disabled>Selecciona...</option>
+                      <option value="ICE O LATOR">ICE O LATOR</option>
+                      <option value="BHO">BHO</option>
+                      <option value="DRY SIFT">DRY SIFT</option>
+                      <option value="HASH">HASH</option>
+                    </select>
+                  </div>
+                )}
 
                 <div className="grid grid-cols-2 gap-4">
                   <div>
