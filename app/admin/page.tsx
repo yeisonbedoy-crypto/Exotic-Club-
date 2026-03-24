@@ -123,6 +123,25 @@ export default function AdminPage() {
     await supabase.from('productos').update({ activo: !estadoActual }).eq('id', id);
   };
 
+  const eliminarProducto = async (id: string, nombre: string) => {
+    if (!window.confirm(`🔴 ¿Estás MUY seguro de que quieres ELIMINAR permanentemente "${nombre}"?\n\nSi el producto ya tiene ventas registradas, la base de datos bloqueará el borrado para no corromper la contabilidad. Si eso ocurre, por favor usa el botón de ocultar (👁️/🚫).`)) {
+      return;
+    }
+    
+    try {
+      const { error } = await supabase.from('productos').delete().eq('id', id);
+      if (error) {
+        console.error('Error al eliminar producto:', error);
+        alert('❌ NO se pudo eliminar el producto.\n\nContiene un historial de ventas. Para no dañar tus cuentas, ocúltalo usando el botón (👁️/🚫).');
+      } else {
+        setProductos(prev => prev.filter(p => p.id !== id));
+      }
+    } catch (err) {
+      console.error(err);
+      alert('Error de conexión al intentar eliminar.');
+    }
+  };
+
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
     
@@ -306,9 +325,14 @@ export default function AdminPage() {
                             <span className="text-sm font-medium text-emerald-500">{p.precio.toFixed(2)}€ /{p.categoria === 'peso' ? 'g' : 'u'}</span>
                           </div>
                         </div>
-                        <button onClick={() => toggleActivo(p.id, p.activo)} className="w-10 h-10 flex items-center justify-center rounded-xl bg-stone-800 hover:bg-stone-700 transition-colors border border-stone-700" title={p.activo ? 'Desactivar' : 'Activar'}>
-                          {p.activo ? '👁️' : '🚫'}
-                        </button>
+                        <div className="flex gap-2">
+                          <button onClick={() => toggleActivo(p.id, p.activo)} className="w-10 h-10 flex items-center justify-center rounded-xl bg-stone-800 hover:bg-stone-700 transition-colors border border-stone-700" title={p.activo ? 'Desactivar y ocultar' : 'Reactivar'}>
+                            {p.activo ? '👁️' : '🚫'}
+                          </button>
+                          <button onClick={() => eliminarProducto(p.id, p.nombre)} className="w-10 h-10 flex items-center justify-center rounded-xl bg-rose-500/10 hover:bg-rose-500/20 text-rose-500 transition-colors border border-rose-500/20" title="Eliminar producto permanentemente">
+                            🗑️
+                          </button>
+                        </div>
                       </div>
 
                       <div className="bg-stone-900 border border-stone-800 rounded-xl p-2 flex items-center justify-between mt-4">
