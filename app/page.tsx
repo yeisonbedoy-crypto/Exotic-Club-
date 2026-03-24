@@ -3,15 +3,7 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
 import Link from 'next/link';
-
-type Producto = {
-  id: string;
-  nombre: string;
-  tipo: 'flor' | 'resina' | 'bebida' | 'otro';
-  categoria: 'peso' | 'unidad';
-  stock: number;
-  precio: number;
-};
+import { Producto } from '@/lib/types';
 
 export default function POSTerminal() {
   const [productos, setProductos] = useState<Producto[]>([]);
@@ -31,8 +23,7 @@ export default function POSTerminal() {
       if (error) {
         console.error('Error cargando productos:', error);
       } else if (data) {
-        // @ts-ignore
-        setProductos(data);
+        setProductos(data as Producto[]);
       }
     }
     cargarProductos();

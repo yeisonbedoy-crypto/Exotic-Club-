@@ -3,16 +3,7 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
 import Link from 'next/link';
-
-type Producto = {
-  id: string;
-  nombre: string;
-  tipo: 'flor' | 'resina' | 'bebida' | 'otro';
-  categoria: 'peso' | 'unidad';
-  stock: number;
-  precio: number;
-  activo: boolean;
-};
+import { Producto } from '@/lib/types';
 
 export default function AdminPage() {
   const [productos, setProductos] = useState<Producto[]>([]);
@@ -33,14 +24,13 @@ export default function AdminPage() {
 
   async function cargarProductos() {
     setLoading(true);
-    const { data, error } = await supabase
+    const { data } = await supabase
       .from('productos')
       .select('*')
       .order('created_at', { ascending: false });
     
     if (data) {
-      // @ts-ignore
-      setProductos(data);
+      setProductos(data as Producto[]);
     }
     setLoading(false);
   }
@@ -50,7 +40,7 @@ export default function AdminPage() {
     if (!nombre || !precio || !stock) return;
 
     setSaving(true);
-    const { data, error } = await supabase.from('productos').insert([
+    const { error } = await supabase.from('productos').insert([
       {
         nombre,
         tipo,
