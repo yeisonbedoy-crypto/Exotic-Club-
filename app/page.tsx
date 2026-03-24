@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { supabase } from '@/lib/supabase';
 
 type Producto = {
   id: string;
@@ -18,13 +19,22 @@ export default function POSTerminal() {
   const [cantidad, setCantidad] = useState<string>('');
   const [loading, setLoading] = useState(false);
 
-  // Simulación de carga inicial
   useEffect(() => {
-    setProductos([
-      { id: '1', nombre: 'Amnesia Haze', tipo: 'flor', categoria: 'peso', stock: 150.5, precio: 6.0 },
-      { id: '2', nombre: 'Dry Sift Marruecos', tipo: 'resina', categoria: 'peso', stock: 50.0, precio: 10.0 },
-      { id: '3', nombre: 'Refresco Cola', tipo: 'bebida', categoria: 'unidad', stock: 24, precio: 2.0 },
-    ]);
+    async function cargarProductos() {
+      const { data, error } = await supabase
+        .from('productos')
+        .select('*')
+        .eq('activo', true)
+        .order('nombre');
+      
+      if (error) {
+        console.error('Error cargando productos:', error);
+      } else if (data) {
+        // @ts-ignore
+        setProductos(data);
+      }
+    }
+    cargarProductos();
   }, []);
 
   const productosFiltrados = productos.filter(p => 
@@ -51,7 +61,18 @@ export default function POSTerminal() {
     const total = cantNum * productoSeleccionado.precio;
 
     try {
-      // Actualización en caché local para feedback instantáneo (Optimistic UI)
+      // 1. Guardar la venta en Supabase (esto disparará el Trigger que resta el stock)
+      const { error } = await supabase.from('ventas').insert([
+        { 
+          producto_id: productoSeleccionado.id, 
+          cantidad: cantNum, 
+          total: total 
+        }
+      ]);
+      
+      if (error) throw error;
+
+      // 2. Actualización en caché local para feedback instantáneo (Optimistic UI)
       setProductos(prev => prev.map(p => 
         p.id === productoSeleccionado.id ? { ...p, stock: p.stock - cantNum } : p
       ));
