@@ -11,6 +11,7 @@ export default function POSTerminal() {
   const [productoSeleccionado, setProductoSeleccionado] = useState<Producto | null>(null);
   const [cantidadReal, setCantidadReal] = useState<string>(''); // Peso Real o Unidades
   const [totalCobrado, setTotalCobrado] = useState<string>(''); // Dinero Real a cobrar
+  const [concepto, setConcepto] = useState<string>(''); // Nota para ventas genéricas
   const [campoActivo, setCampoActivo] = useState<'peso' | 'precio'>('peso');
   const [loading, setLoading] = useState(false);
 
@@ -99,7 +100,8 @@ export default function POSTerminal() {
         { 
           producto_id: productoSeleccionado.id, 
           cantidad_real: cantNumeric, 
-          total_cobrado: totalNumeric
+          total_cobrado: totalNumeric,
+          concepto: concepto.trim() || null
         }
       ]);
       
@@ -116,6 +118,7 @@ export default function POSTerminal() {
       setProductoSeleccionado(null);
       setCantidadReal('');
       setTotalCobrado('');
+      setConcepto('');
       setCampoActivo('peso');
     } catch (error) {
       console.error('Error al cobrar:', error);
@@ -320,6 +323,20 @@ export default function POSTerminal() {
               ) : (
                 <p className="text-stone-600 font-medium text-lg h-32 flex items-center justify-center">Selecciona un producto</p>
               )}
+            </div>
+
+            {/* Input Concepto (Opcional) */}
+            <div className="mb-4">
+              <input 
+                type="text" 
+                disabled={!productoSeleccionado}
+                placeholder="✏️ Concepto / Nota (ej: Grinder verde, Papel...) - Opcional" 
+                value={concepto}
+                onChange={(e) => setConcepto(e.target.value)}
+                onFocus={() => setCampoActivo('peso')}
+                className="w-full bg-stone-950/50 border border-stone-800 rounded-xl p-3 text-sm text-stone-200 focus:ring-2 focus:ring-emerald-500 outline-none transition-all placeholder:text-stone-600 disabled:opacity-30 disabled:cursor-not-allowed"
+                maxLength={60}
+              />
             </div>
 
             {/* Teclado Táctil Mejorado y Pequeño */}

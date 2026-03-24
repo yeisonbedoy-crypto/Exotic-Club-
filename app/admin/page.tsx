@@ -13,6 +13,7 @@ type VentaHistorial = {
   cantidad_real: number;
   total_cobrado: number;
   fecha_hora: string;
+  concepto: string | null;
 };
 
 export default function AdminPage() {
@@ -520,7 +521,10 @@ export default function AdminPage() {
                         })}
                       </td>
                       <td className="py-5">
-                        <div className="font-bold text-stone-200">{v.producto_nombre}</div>
+                        <div className="font-bold text-stone-200">
+                          {v.producto_nombre}
+                          {v.concepto && <span className="ml-2 text-sm font-normal italic text-emerald-400">"{v.concepto}"</span>}
+                        </div>
                         <div className="text-xs text-stone-500 uppercase mt-0.5">
                           {v.producto_subtipo ? `${v.producto_tipo} - ${v.producto_subtipo}` : v.producto_tipo}
                         </div>
