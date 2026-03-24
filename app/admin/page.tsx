@@ -21,6 +21,12 @@ export default function AdminPage() {
   const [saving, setSaving] = useState(false);
   const [showScrollTop, setShowScrollTop] = useState(false);
   
+  // AUTENTICACIÓN
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [usuarioInput, setUsuarioInput] = useState('');
+  const [passInput, setPassInput] = useState('');
+  const [authError, setAuthError] = useState(false);
+
   // TABS
   const [activeTab, setActiveTab] = useState<'inventario' | 'ventas'>('inventario');
 
@@ -112,6 +118,60 @@ export default function AdminPage() {
     setProductos(prev => prev.map(p => p.id === id ? { ...p, activo: !estadoActual } : p));
     await supabase.from('productos').update({ activo: !estadoActual }).eq('id', id);
   };
+
+  const handleLogin = (e: React.FormEvent) => {
+    e.preventDefault();
+    // Credenciales (pueden ser movidas a process.env)
+    if (usuarioInput.toLowerCase() === 'admin' && passInput === 'club123') {
+      setIsAuthenticated(true);
+      setAuthError(false);
+    } else {
+      setAuthError(true);
+      setPassInput('');
+    }
+  };
+
+  if (!isAuthenticated) {
+    return (
+      <div className="min-h-[100dvh] bg-stone-950 flex items-center justify-center p-4 font-sans selection:bg-emerald-500/30 text-stone-100">
+        <form onSubmit={handleLogin} className="w-full max-w-sm bg-stone-900 border border-stone-800 rounded-3xl p-8 shadow-2xl relative overflow-hidden">
+          <div className="absolute top-0 left-0 right-0 h-1.5 bg-gradient-to-r from-emerald-500 to-green-600"></div>
+          
+          <div className="mb-8 text-center text-stone-500">
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-14 w-14 mx-auto mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+            </svg>
+            <h2 className="text-2xl font-black text-stone-100 placeholder:block">Acceso Privado</h2>
+            <p className="text-sm mt-2">Área de administración</p>
+          </div>
+
+          <div className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-stone-400 mb-1">Usuario</label>
+              <input type="text" autoFocus required value={usuarioInput} onChange={e => setUsuarioInput(e.target.value)} placeholder="Ej: admin" className="w-full bg-stone-950 border border-stone-800 rounded-xl p-4 text-white focus:ring-2 focus:ring-emerald-500 outline-none transition-all placeholder:text-stone-700" />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-stone-400 mb-1">Contraseña</label>
+              <input type="password" required value={passInput} onChange={e => setPassInput(e.target.value)} placeholder="••••••" className="w-full bg-stone-950 border border-stone-800 rounded-xl p-4 text-white focus:ring-2 focus:ring-emerald-500 outline-none transition-all placeholder:text-stone-700" />
+            </div>
+
+            {authError && (
+              <p className="text-rose-400 text-sm text-center bg-rose-500/10 p-3 rounded-xl border border-rose-500/20">Credenciales incorrectas, intenta de nuevo.</p>
+            )}
+
+            <button type="submit" className="w-full mt-4 bg-emerald-600 hover:bg-emerald-500 active:bg-emerald-700 text-white font-bold text-lg py-4 rounded-xl transition-all shadow-lg active:scale-[0.98]">
+              INICIAR SESIÓN
+            </button>
+            
+            <div className="text-center mt-4">
+              <Link href="/" className="text-sm text-stone-500 hover:text-stone-300 transition-colors shrink-0">← Volver al Terminal</Link>
+            </div>
+          </div>
+        </form>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-[100dvh] bg-stone-950 text-stone-100 p-4 font-sans pb-20 selection:bg-emerald-500/30">
