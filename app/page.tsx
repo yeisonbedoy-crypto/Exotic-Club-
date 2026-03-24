@@ -131,6 +131,42 @@ export default function POSTerminal() {
 
   const { cantReal, cantCobrar, total } = getCantidadesCalculadas();
 
+  // Escuchar Teclado Físico
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Ignorar escritura si se está en el input de búsqueda
+      if (document.activeElement && document.activeElement.tagName === 'INPUT') {
+        return;
+      }
+
+      if (e.key === 'Escape') {
+        // Deseleccionar
+        setProductoSeleccionado(null);
+        setCantidad('');
+        setAjuste('');
+        setModoTeclado('cantidad');
+        return;
+      }
+
+      if (!productoSeleccionado) return;
+
+      // Omitir comportamientos por defecto que puedan fastidiar
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        if (cantReal > 0 && !loading && total >= 0) {
+          procesarVenta();
+        }
+      } else if (e.key === 'Backspace') {
+        borrarDelTeclado();
+      } else if (/^[0-9.]$/.test(e.key)) {
+        agregarAlTeclado(e.key);
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [productoSeleccionado, cantidad, ajuste, modoTeclado, loading, cantReal, total]);
+
   return (
     <div className="min-h-[100dvh] bg-stone-950 text-stone-100 p-4 font-sans flex flex-col selection:bg-emerald-500/30">
       <header className="mb-4 flex flex-row justify-between items-center">
