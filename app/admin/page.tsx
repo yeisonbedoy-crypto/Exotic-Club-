@@ -19,6 +19,7 @@ export default function AdminPage() {
   const [ventas, setVentas] = useState<VentaHistorial[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [showScrollTop, setShowScrollTop] = useState(false);
   
   // TABS
   const [activeTab, setActiveTab] = useState<'inventario' | 'ventas'>('inventario');
@@ -34,7 +35,17 @@ export default function AdminPage() {
   useEffect(() => {
     cargarInventario();
     cargarVentas();
+
+    const handleScroll = () => {
+      setShowScrollTop(window.scrollY > 300);
+    };
+    window.addEventListener('scroll', handleScroll);
+    return () => window.removeEventListener('scroll', handleScroll);
   }, []);
+
+  const scrollToTop = () => {
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
 
   async function cargarInventario() {
     setLoading(true);
@@ -139,7 +150,7 @@ export default function AdminPage() {
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
             
             {/* PANEL IZQUIERDO: Formulario de Creación */}
-            <section className="bg-stone-900 border border-stone-800 rounded-3xl p-6 lg:col-span-4 h-fit sticky top-4 shadow-xl">
+            <section id="form-nuevo-producto" className="bg-stone-900 border border-stone-800 rounded-3xl p-6 lg:col-span-4 h-fit relative lg:sticky lg:top-4 shadow-xl">
               <h2 className="text-xl font-bold text-stone-100 mb-6 flex items-center gap-2">
                 <span className="text-emerald-500">＋</span> Nuevo Producto
               </h2>
@@ -290,6 +301,16 @@ export default function AdminPage() {
         )}
 
       </main>
+
+      {/* Botón Flotante (FAB) para Móviles */}
+      {showScrollTop && activeTab === 'inventario' && (
+        <button 
+          onClick={scrollToTop}
+          className="lg:hidden fixed bottom-6 right-6 w-14 h-14 bg-emerald-600 text-white rounded-full shadow-[0_0_20px_rgba(16,185,129,0.4)] flex items-center justify-center text-3xl font-black z-50 active:scale-95 transition-all"
+        >
+          +
+        </button>
+      )}
     </div>
   );
 }
