@@ -263,15 +263,30 @@ export default function POSTerminal() {
                     </div>
                     <div className="text-right">
                       <span className="text-2xl font-bold text-emerald-400">{prod.precio.toFixed(2)}€</span>
-                      <span className="text-sm text-stone-500 block">/{prod.categoria === 'peso' ? 'g' : 'ud'}</span>
+      <span className="text-sm text-stone-500 block">/{prod.categoria === 'peso' ? 'g' : 'ud'}</span>
                     </div>
                   </div>
                 </button>
               );
             })}
             {productosFiltrados.length === 0 && (
-              <div className="text-center text-stone-500 py-10 border-2 border-dashed border-stone-800 rounded-2xl">
-                No hay productos que coincidan en esta categoría.
+              <div className="text-center text-stone-500 py-10 border-2 border-dashed border-stone-800 rounded-2xl flex flex-col items-center justify-center p-6 gap-4">
+                <p>No hay productos que coincidan en esta categoría.</p>
+                {activeTab === 'otro' && (
+                  <button 
+                    onClick={async () => {
+                      const { data, error } = await supabase.from('productos').insert([{
+                        nombre: 'Artículos Varios', tipo: 'otro', categoria: 'unidad', precio: 1, stock: 9999, activo: true
+                      }]).select('*');
+                      if (data) {
+                         setProductos(prev => [...prev, data[0]]);
+                      }
+                    }}
+                    className="bg-emerald-600/20 text-emerald-400 border border-emerald-500/50 font-bold py-3 px-6 rounded-xl hover:bg-emerald-600 hover:text-white transition-all w-full mt-2"
+                  >
+                    + CREAR "ARTÍCULOS VARIOS"
+                  </button>
+                )}
               </div>
             )}
           </div>
@@ -325,19 +340,21 @@ export default function POSTerminal() {
               )}
             </div>
 
-            {/* Input Concepto (Opcional) */}
-            <div className="mb-4">
-              <input 
-                type="text" 
-                disabled={!productoSeleccionado}
-                placeholder="✏️ Concepto / Nota (ej: Grinder verde, Papel...) - Opcional" 
-                value={concepto}
-                onChange={(e) => setConcepto(e.target.value)}
-                onFocus={() => setCampoActivo('peso')}
-                className="w-full bg-stone-950/50 border border-stone-800 rounded-xl p-3 text-sm text-stone-200 focus:ring-2 focus:ring-emerald-500 outline-none transition-all placeholder:text-stone-600 disabled:opacity-30 disabled:cursor-not-allowed"
-                maxLength={60}
-              />
-            </div>
+            {/* Input Concepto (Opcional, Solo para Otro) */}
+            {productoSeleccionado?.tipo === 'otro' && (
+              <div className="mb-4 animate-fade-in">
+                <input 
+                  type="text" 
+                  autoFocus
+                  placeholder="✏️ ¿Qué artículo extra vendes? (Ej: Papel OCB...)" 
+                  value={concepto}
+                  onChange={(e) => setConcepto(e.target.value)}
+                  onFocus={() => { if(campoActivo === 'peso') setCampoActivo('precio'); }} // Normalmente se cobra por precio
+                  className="w-full bg-stone-900 border border-emerald-500/50 rounded-xl p-3 text-sm text-stone-200 focus:ring-2 focus:ring-emerald-500 outline-none transition-all placeholder:text-stone-500 shadow-inner"
+                  maxLength={60}
+                />
+              </div>
+            )}
 
             {/* Teclado Táctil Mejorado y Pequeño */}
             <div className="grid grid-cols-3 gap-2 sm:gap-3 mb-4">
