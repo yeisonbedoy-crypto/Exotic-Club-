@@ -31,7 +31,13 @@ export default function AdminPage() {
   const [authError, setAuthError] = useState(false);
 
   // TABS
-  const [activeTab, setActiveTab] = useState<'inventario' | 'ventas'>('inventario');
+  const [activeTab, setActiveTab] = useState<'inventario' | 'ventas' | 'dashboard'>('inventario');
+
+  // DASHBOARD
+  const [rangoTiempo, setRangoTiempo] = useState<'hoy' | '7dias' | 'mes'>('hoy');
+  const [dashboardLoading, setDashboardLoading] = useState(false);
+  const [dashboardStats, setDashboardStats] = useState({ ventasTotales: 0, volumenTotal: 0, cortesiaTotal: 0, unidadesTotales: 0 });
+  const [topProductos, setTopProductos] = useState<{nombre: string, total: number}[]>([]);
 
   // Formulario Producto
   const [nombre, setNombre] = useState('');
@@ -53,6 +59,13 @@ export default function AdminPage() {
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
+  // Cargar dashboard cuando cambia el rango o te logueas
+  useEffect(() => {
+    if (isAuthenticated) {
+      cargarDashboard();
+    }
+  }, [rangoTiempo, isAuthenticated]);
+
   const scrollToTop = () => {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
@@ -73,9 +86,73 @@ export default function AdminPage() {
     const { data } = await supabase
       .from('vista_registro_ventas')
       .select('*')
+      .order('fecha_hora', { ascending: false })
       .limit(100); // Últimas 100 ventas
       
     if (data) setVentas(data as VentaHistorial[]);
+  }
+
+  async function cargarDashboard() {
+    setDashboardLoading(true);
+    try {
+      let fechaInicio = new Date();
+      if (rangoTiempo === 'hoy') {
+        fechaInicio.setHours(0, 0, 0, 0);
+      } else if (rangoTiempo === '7dias') {
+        fechaInicio.setDate(fechaInicio.getDate() - 7);
+      } else if (rangoTiempo === 'mes') {
+        fechaInicio = new Date(fechaInicio.getFullYear(), fechaInicio.getMonth(), 1);
+      }
+
+      const { data, error } = await supabase
+        .from('vista_registro_ventas')
+        .select('*')
+        .gte('fecha_hora', fechaInicio.toISOString());
+
+      if (error) throw error;
+
+      const ventasArr = (data || []) as VentaHistorial[];
+      
+      let vTotales = 0;
+      let volTotal = 0;
+      let cTotal = 0;
+      let uTotales = 0;
+      
+      const prodMap: Record<string, number> = {};
+
+      ventasArr.forEach(v => {
+        vTotales += v.total_euros;
+        cTotal += v.ajuste_peso;
+        
+        if (v.producto_tipo === 'weed' || v.producto_tipo === 'extraccion') {
+          volTotal += v.cantidad; // cantidad ya representa el peso_real en la BD
+        } else {
+          uTotales += v.cantidad;
+        }
+
+        const prodName = v.producto_subtipo ? `${v.producto_nombre} (${v.producto_subtipo})` : v.producto_nombre;
+        prodMap[prodName] = (prodMap[prodName] || 0) + v.total_euros;
+      });
+
+      setDashboardStats({
+        ventasTotales: vTotales,
+        volumenTotal: volTotal,
+        cortesiaTotal: cTotal,
+        unidadesTotales: uTotales
+      });
+
+      const top = Object.entries(prodMap)
+        .map(([nombre, total]) => ({ nombre, total }))
+        .sort((a, b) => b.total - a.total)
+        .slice(0, 5);
+
+      setTopProductos(top);
+
+    } catch (err) {
+      console.error('Error cargando dashboard', err);
+    } finally {
+      setDashboardLoading(false);
+    }
   }
 
   const handleCrearProducto = async (e: React.FormEvent) => {
@@ -222,16 +299,22 @@ export default function AdminPage() {
         </div>
 
         {/* TABS NAVEGACIÓN */}
-        <div className="flex space-x-4 bg-stone-900 border border-stone-800 p-1.5 rounded-2xl w-full max-w-sm">
+        <div className="flex space-x-2 bg-stone-900 border border-stone-800 p-1.5 rounded-2xl w-full max-w-lg lg:ml-auto">
+          <button 
+            onClick={() => setActiveTab('dashboard')}
+            className={`flex-1 py-3 px-2 md:px-4 rounded-xl text-sm font-bold transition-all ${activeTab === 'dashboard' ? 'bg-emerald-600 shadow-md text-white' : 'text-stone-400 hover:text-stone-200 hover:bg-stone-800'}`}
+          >
+            📊 DASHBOARD
+          </button>
           <button 
             onClick={() => setActiveTab('inventario')}
-            className={`flex-1 py-3 px-4 rounded-xl text-sm font-bold transition-all ${activeTab === 'inventario' ? 'bg-emerald-600 shadow-md text-white' : 'text-stone-400 hover:text-stone-200 hover:bg-stone-800'}`}
+            className={`flex-1 py-3 px-2 md:px-4 rounded-xl text-sm font-bold transition-all ${activeTab === 'inventario' ? 'bg-emerald-600 shadow-md text-white' : 'text-stone-400 hover:text-stone-200 hover:bg-stone-800'}`}
           >
-            📦 INVENTARIO
+            📦 STOCK
           </button>
           <button 
             onClick={() => setActiveTab('ventas')}
-            className={`flex-1 py-3 px-4 rounded-xl text-sm font-bold transition-all ${activeTab === 'ventas' ? 'bg-emerald-600 shadow-md text-white' : 'text-stone-400 hover:text-stone-200 hover:bg-stone-800'}`}
+            className={`flex-1 py-3 px-2 md:px-4 rounded-xl text-sm font-bold transition-all ${activeTab === 'ventas' ? 'bg-emerald-600 shadow-md text-white' : 'text-stone-400 hover:text-stone-200 hover:bg-stone-800'}`}
           >
             📋 VENTAS
           </button>
@@ -425,6 +508,88 @@ export default function AdminPage() {
         )}
 
       </main>
+
+      {/* VISTA DE DASHBOARD */}
+      {activeTab === 'dashboard' && (
+        <section className="max-w-7xl mx-auto space-y-6">
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-stone-900 border border-stone-800 rounded-3xl p-6 shadow-xl">
+            <h2 className="text-xl font-bold text-stone-100 flex items-center gap-2">
+              Rendimiento del Club
+            </h2>
+            <div className="flex bg-stone-950 border border-stone-800 rounded-xl p-1 w-full sm:w-auto">
+              <button onClick={() => setRangoTiempo('hoy')} className={`flex-1 sm:flex-none px-4 py-2 rounded-lg text-sm font-bold transition-all ${rangoTiempo === 'hoy' ? 'bg-stone-800 text-white' : 'text-stone-500 hover:text-stone-300'}`}>Hoy</button>
+              <button onClick={() => setRangoTiempo('7dias')} className={`flex-1 sm:flex-none px-4 py-2 rounded-lg text-sm font-bold transition-all ${rangoTiempo === '7dias' ? 'bg-stone-800 text-white' : 'text-stone-500 hover:text-stone-300'}`}>7 Días</button>
+              <button onClick={() => setRangoTiempo('mes')} className={`flex-1 sm:flex-none px-4 py-2 rounded-lg text-sm font-bold transition-all ${rangoTiempo === 'mes' ? 'bg-stone-800 text-white' : 'text-stone-500 hover:text-stone-300'}`}>Este Mes</button>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
+            <div className="bg-stone-900 border border-stone-800 rounded-3xl p-6 shadow-xl relative overflow-hidden group">
+              <div className="absolute top-0 right-0 w-24 h-24 bg-emerald-500/5 rounded-bl-full -mr-4 -mt-4 transition-transform group-hover:scale-110"></div>
+              <h3 className="text-stone-400 text-sm font-medium mb-1">Ventas Totales</h3>
+              {dashboardLoading ? (
+                <div className="h-10 bg-stone-800 rounded animate-pulse w-3/4 mt-2"></div>
+              ) : (
+                <p className="text-3xl md:text-4xl font-black text-emerald-400">{dashboardStats.ventasTotales.toFixed(2)}€</p>
+              )}
+            </div>
+            <div className="bg-stone-900 border border-stone-800 rounded-3xl p-6 shadow-xl relative overflow-hidden group">
+              <div className="absolute top-0 right-0 w-24 h-24 bg-stone-800/30 rounded-bl-full -mr-4 -mt-4 transition-transform group-hover:scale-110"></div>
+              <h3 className="text-stone-400 text-sm font-medium mb-1">Volumen (Flores/Extr)</h3>
+              {dashboardLoading ? (
+                <div className="h-10 bg-stone-800 rounded animate-pulse w-1/2 mt-2"></div>
+              ) : (
+                <p className="text-3xl md:text-4xl font-black text-stone-100">{dashboardStats.volumenTotal.toFixed(2)}<span className="text-xl md:text-2xl text-stone-600 ml-1">g</span></p>
+              )}
+            </div>
+            <div className="bg-stone-900 border border-stone-800 rounded-3xl p-6 shadow-xl relative overflow-hidden group">
+              <div className="absolute top-0 right-0 w-24 h-24 bg-rose-500/5 rounded-bl-full -mr-4 -mt-4 transition-transform group-hover:scale-110"></div>
+              <h3 className="text-stone-400 text-sm font-medium mb-1">Total Cortesía</h3>
+              {dashboardLoading ? (
+                <div className="h-10 bg-stone-800 rounded animate-pulse w-1/2 mt-2"></div>
+              ) : (
+                <p className="text-3xl md:text-4xl font-black text-rose-400">{dashboardStats.cortesiaTotal.toFixed(2)}<span className="text-xl md:text-2xl text-rose-500/50 ml-1">g</span></p>
+              )}
+            </div>
+            <div className="bg-stone-900 border border-stone-800 rounded-3xl p-6 shadow-xl relative overflow-hidden group">
+              <div className="absolute top-0 right-0 w-24 h-24 bg-stone-800/30 rounded-bl-full -mr-4 -mt-4 transition-transform group-hover:scale-110"></div>
+              <h3 className="text-stone-400 text-sm font-medium mb-1">Bebidas/Otros</h3>
+              {dashboardLoading ? (
+                <div className="h-10 bg-stone-800 rounded animate-pulse w-1/3 mt-2"></div>
+              ) : (
+                <p className="text-3xl md:text-4xl font-black text-stone-100">{dashboardStats.unidadesTotales}<span className="text-xl md:text-2xl text-stone-600 ml-1">ud</span></p>
+              )}
+            </div>
+          </div>
+
+          <div className="bg-stone-900 border border-stone-800 rounded-3xl p-6 shadow-xl mt-6">
+            <h3 className="text-lg font-bold text-stone-100 mb-6 flex items-center gap-2">🏆 Top 5 Productos Estrellas</h3>
+            <div className="space-y-3">
+              {dashboardLoading ? (
+                [1,2,3,4,5].map(i => (
+                  <div key={i} className="h-16 bg-stone-950 border border-stone-800 rounded-2xl animate-pulse"></div>
+                ))
+              ) : topProductos.length > 0 ? (
+                topProductos.map((prod, index) => (
+                  <div key={index} className="flex items-center justify-between p-4 bg-stone-950 border border-stone-800 rounded-2xl hover:border-emerald-500/30 transition-colors">
+                    <div className="flex items-center gap-4">
+                      <div className={`w-8 h-8 rounded-full flex items-center justify-center font-black ${index === 0 ? 'bg-emerald-500/20 text-emerald-400' : index === 1 ? 'bg-stone-800 text-stone-300' : index === 2 ? 'bg-stone-800/60 text-stone-400' : 'bg-stone-900 text-stone-600'}`}>
+                        {index + 1}
+                      </div>
+                      <span className="font-bold text-stone-100">{prod.nombre}</span>
+                    </div>
+                    <span className="font-mono text-emerald-400 font-bold">{prod.total.toFixed(2)}€</span>
+                  </div>
+                ))
+              ) : (
+                <div className="py-8 text-center text-stone-500 border-2 border-dashed border-stone-800 rounded-2xl">
+                  No hay ventas en este periodo.
+                </div>
+              )}
+            </div>
+          </div>
+        </section>
+      )}
 
       {/* Botón Flotante (FAB) para Móviles */}
       {showScrollTop && activeTab === 'inventario' && (
