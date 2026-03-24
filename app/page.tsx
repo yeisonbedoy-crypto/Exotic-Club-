@@ -94,11 +94,16 @@ export default function POSTerminal() {
     try {
       // 1. Guardar la venta (cantReal es lo que se deduce del stock al invocar el trigger SQL)
       // Nota: El trigger actualizará el stock quitando cantReal.
+      const cantAjuste = Number(ajuste) || 0;
+      const ajusteEuros = cantAjuste * (productoSeleccionado.precio || 0);
+
       const { error } = await supabase.from('ventas').insert([
         { 
           producto_id: productoSeleccionado.id, 
           cantidad: cantReal, 
-          total: total 
+          total: total,
+          ajuste_peso: cantAjuste,
+          ajuste_euros: ajusteEuros
         }
       ]);
       

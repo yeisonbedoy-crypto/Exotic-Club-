@@ -9,8 +9,11 @@ type VentaHistorial = {
   venta_id: string;
   producto_nombre: string;
   producto_tipo: string;
+  producto_subtipo: string | null;
   cantidad: number;
   total_euros: number;
+  ajuste_peso: number;
+  ajuste_euros: number;
   fecha_hora: string;
 };
 
@@ -362,13 +365,25 @@ export default function AdminPage() {
                       </td>
                       <td className="py-5">
                         <div className="font-bold text-stone-200">{v.producto_nombre}</div>
-                        <div className="text-xs text-stone-500 uppercase mt-0.5">{v.producto_tipo}</div>
+                        <div className="text-xs text-stone-500 uppercase mt-0.5">
+                          {v.producto_subtipo ? `${v.producto_tipo} - ${v.producto_subtipo}` : v.producto_tipo}
+                        </div>
                       </td>
-                      <td className="py-5 font-mono text-stone-300">
-                        {v.cantidad}
+                      <td className="py-5">
+                        <div className="font-mono text-stone-300">{v.cantidad}</div>
+                        {v.ajuste_peso > 0 && (
+                           <div className="text-[10px] text-rose-400 font-mono mt-1 px-1.5 py-0.5 bg-rose-500/10 rounded border border-rose-500/20 inline-block font-bold">
+                             CORTESÍA -{v.ajuste_peso}
+                           </div>
+                        )}
                       </td>
-                      <td className="py-5 font-bold text-emerald-400 text-right pr-4 text-lg">
-                        +{v.total_euros.toFixed(2)}€
+                      <td className="py-5 font-bold text-right pr-4 text-lg">
+                        <div className="text-emerald-400">+{v.total_euros.toFixed(2)}€</div>
+                        {v.ajuste_euros > 0 && (
+                          <div className="text-xs text-rose-400 font-medium mt-0.5">
+                            -{v.ajuste_euros.toFixed(2)}€
+                          </div>
+                        )}
                       </td>
                     </tr>
                   ))}

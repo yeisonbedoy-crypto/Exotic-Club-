@@ -18,6 +18,7 @@ ALTER TABLE productos ADD COLUMN IF NOT EXISTS subtipo TEXT NULL;
 
 -- 5. Añadir la restricción condicional para 'subtipo'
 -- Solo obliga a tener subtipo válido si el tipo es 'extraccion'
+ALTER TABLE productos DROP CONSTRAINT IF EXISTS productos_subtipo_check;
 ALTER TABLE productos ADD CONSTRAINT productos_subtipo_check
 CHECK (
   (tipo = 'extraccion' AND subtipo IN ('ICE O LATOR', 'BHO', 'DRY SIFT', 'HASH'))
@@ -25,7 +26,30 @@ CHECK (
   (tipo != 'extraccion') 
 );
 
+-- 6. Contabilidad de Cortesías en Ventas
+ALTER TABLE ventas ADD COLUMN IF NOT EXISTS ajuste_peso NUMERIC(10,2) DEFAULT 0;
+ALTER TABLE ventas ADD COLUMN IF NOT EXISTS ajuste_euros NUMERIC(10,2) DEFAULT 0;
+
+-- 7. Actualizar la Vista Histórica
+DROP VIEW IF EXISTS vista_registro_ventas;
+CREATE VIEW vista_registro_ventas AS
+SELECT 
+  v.id AS venta_id,
+  p.id AS producto_id,
+  p.nombre AS producto_nombre,
+  p.tipo AS producto_tipo,
+  p.subtipo AS producto_subtipo,
+  v.cantidad,
+  v.total AS total_euros,
+  v.ajuste_peso,
+  v.ajuste_euros,
+  v.created_at AS fecha_hora
+FROM ventas v
+JOIN productos p ON v.producto_id = p.id
+ORDER BY v.created_at DESC;
+
 -- ====================================================
--- INSTRUCCIONES:
--- Copia todo este código y ejecútalo en el SQL Editor de Supabase
+-- INSTRUCCIONES ÚLTIMA PASADA:
+-- Copia TODO este código (líneas de la 1 a la 44) 
+-- y ejecútalo en el SQL Editor de Supabase
 -- ====================================================
