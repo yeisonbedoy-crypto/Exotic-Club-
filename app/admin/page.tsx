@@ -36,7 +36,7 @@ export default function AdminPage() {
   // DASHBOARD
   const [rangoTiempo, setRangoTiempo] = useState<'hoy' | '7dias' | 'mes'>('hoy');
   const [dashboardLoading, setDashboardLoading] = useState(false);
-  const [dashboardStats, setDashboardStats] = useState({ ventasTotales: 0, volumenTotal: 0, cortesiaTotal: 0, unidadesTotales: 0 });
+  const [dashboardStats, setDashboardStats] = useState({ ventasTotales: 0, volumenTotal: 0, cortesiaTotal: 0, unidadesTotales: 0, inversionCortesia: 0 });
   const [topProductos, setTopProductos] = useState<{nombre: string, total: number}[]>([]);
 
   // Formulario Producto
@@ -117,12 +117,14 @@ export default function AdminPage() {
       let volTotal = 0;
       let cTotal = 0;
       let uTotales = 0;
+      let invCortesia = 0;
       
       const prodMap: Record<string, number> = {};
 
       ventasArr.forEach(v => {
         vTotales += v.total_euros;
         cTotal += v.ajuste_peso;
+        invCortesia += v.ajuste_euros;
         
         if (v.producto_tipo === 'weed' || v.producto_tipo === 'extraccion') {
           volTotal += v.cantidad; // cantidad ya representa el peso_real en la BD
@@ -138,7 +140,8 @@ export default function AdminPage() {
         ventasTotales: vTotales,
         volumenTotal: volTotal,
         cortesiaTotal: cTotal,
-        unidadesTotales: uTotales
+        unidadesTotales: uTotales,
+        inversionCortesia: invCortesia
       });
 
       const top = Object.entries(prodMap)
@@ -216,6 +219,30 @@ export default function AdminPage() {
     } catch (err) {
       console.error(err);
       alert('Error de conexión al intentar eliminar.');
+    }
+  };
+
+  const handleAnularVenta = async (ventaId: string, nombreProd: string, total: number) => {
+    if (!window.confirm(`⚠️ ESTÁS A PUNTO DE ANULAR UNA VENTA\n\n¿Estás seguro de que quieres anular y eliminar la venta de "${nombreProd}" por ${total.toFixed(2)}€?\n\nEl stock descontado regresará inmediatamente al inventario.`)) {
+      return;
+    }
+
+    try {
+      // Borramos de la tabla 'ventas'. El trigger SQL 'trigger_sumar_stock_borrado' se encarga de reponer el stock.
+      const { error } = await supabase.from('ventas').delete().eq('id', ventaId);
+      
+      if (error) {
+        console.error('Error al anular venta:', error);
+        alert('Error al intentar anular la venta.');
+      } else {
+        // Refrescar todas las vistas en caliente
+        cargarVentas();
+        cargarInventario();
+        cargarDashboard();
+      }
+    } catch (err) {
+      console.error(err);
+      alert('Fallo de conexión.');
     }
   };
 
@@ -463,7 +490,7 @@ export default function AdminPage() {
                 </thead>
                 <tbody className="divide-y divide-stone-800/50">
                   {ventas.map(v => (
-                    <tr key={v.venta_id} className="hover:bg-stone-800/30 transition-colors">
+                    <tr key={v.venta_id} className="hover:bg-stone-800/30 transition-colors group">
                       <td className="py-5 px-4 text-stone-400 font-mono text-sm whitespace-nowrap">
                         {new Date(v.fecha_hora).toLocaleString('es-ES', { 
                           day: '2-digit', month: '2-digit', year: '2-digit',
@@ -485,12 +512,25 @@ export default function AdminPage() {
                         )}
                       </td>
                       <td className="py-5 font-bold text-right pr-4 text-lg">
-                        <div className="text-emerald-400">+{v.total_euros.toFixed(2)}€</div>
-                        {v.ajuste_euros > 0 && (
-                          <div className="text-xs text-rose-400 font-medium mt-0.5">
-                            -{v.ajuste_euros.toFixed(2)}€
+                        <div className="flex justify-end gap-3 items-center">
+                          <button 
+                            onClick={() => handleAnularVenta(v.venta_id, v.producto_nombre, v.total_euros)}
+                            className="opacity-0 group-hover:opacity-100 transition-opacity p-2 text-stone-500 hover:text-rose-400 hover:bg-rose-500/10 rounded-lg"
+                            title="Anular venta y devolver stock"
+                          >
+                            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                            </svg>
+                          </button>
+                          <div className="text-right">
+                            <div className="text-emerald-400">+{v.total_euros.toFixed(2)}€</div>
+                            {v.ajuste_euros > 0 && (
+                              <div className="text-xs text-rose-400 font-medium mt-0.5">
+                                -{v.ajuste_euros.toFixed(2)}€
+                              </div>
+                            )}
                           </div>
-                        )}
+                        </div>
                       </td>
                     </tr>
                   ))}
@@ -523,7 +563,7 @@ export default function AdminPage() {
             </div>
           </div>
 
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
+          <div className="grid grid-cols-2 lg:grid-cols-5 gap-4 md:gap-6">
             <div className="bg-stone-900 border border-stone-800 rounded-3xl p-6 shadow-xl relative overflow-hidden group">
               <div className="absolute top-0 right-0 w-24 h-24 bg-emerald-500/5 rounded-bl-full -mr-4 -mt-4 transition-transform group-hover:scale-110"></div>
               <h3 className="text-stone-400 text-sm font-medium mb-1">Ventas Totales</h3>
@@ -533,6 +573,17 @@ export default function AdminPage() {
                 <p className="text-3xl md:text-4xl font-black text-emerald-400">{dashboardStats.ventasTotales.toFixed(2)}€</p>
               )}
             </div>
+            
+            <div className="bg-stone-900 border border-rose-500/20 rounded-3xl p-6 shadow-xl relative overflow-hidden group">
+              <div className="absolute top-0 right-0 w-24 h-24 bg-rose-500/10 rounded-bl-full -mr-4 -mt-4 transition-transform group-hover:scale-110"></div>
+              <h3 className="text-rose-400 text-sm font-medium mb-1">Inversión Cortesías</h3>
+              {dashboardLoading ? (
+                <div className="h-10 bg-stone-800 rounded animate-pulse w-3/4 mt-2"></div>
+              ) : (
+                <p className="text-3xl md:text-4xl font-black text-rose-500">{dashboardStats.inversionCortesia.toFixed(2)}€</p>
+              )}
+            </div>
+
             <div className="bg-stone-900 border border-stone-800 rounded-3xl p-6 shadow-xl relative overflow-hidden group">
               <div className="absolute top-0 right-0 w-24 h-24 bg-stone-800/30 rounded-bl-full -mr-4 -mt-4 transition-transform group-hover:scale-110"></div>
               <h3 className="text-stone-400 text-sm font-medium mb-1">Volumen (Flores/Extr)</h3>
@@ -542,15 +593,17 @@ export default function AdminPage() {
                 <p className="text-3xl md:text-4xl font-black text-stone-100">{dashboardStats.volumenTotal.toFixed(2)}<span className="text-xl md:text-2xl text-stone-600 ml-1">g</span></p>
               )}
             </div>
+            
             <div className="bg-stone-900 border border-stone-800 rounded-3xl p-6 shadow-xl relative overflow-hidden group">
               <div className="absolute top-0 right-0 w-24 h-24 bg-rose-500/5 rounded-bl-full -mr-4 -mt-4 transition-transform group-hover:scale-110"></div>
-              <h3 className="text-stone-400 text-sm font-medium mb-1">Total Cortesía</h3>
+              <h3 className="text-stone-400 text-sm font-medium mb-1">Déficit (Regalado)</h3>
               {dashboardLoading ? (
                 <div className="h-10 bg-stone-800 rounded animate-pulse w-1/2 mt-2"></div>
               ) : (
                 <p className="text-3xl md:text-4xl font-black text-rose-400">{dashboardStats.cortesiaTotal.toFixed(2)}<span className="text-xl md:text-2xl text-rose-500/50 ml-1">g</span></p>
               )}
             </div>
+            
             <div className="bg-stone-900 border border-stone-800 rounded-3xl p-6 shadow-xl relative overflow-hidden group">
               <div className="absolute top-0 right-0 w-24 h-24 bg-stone-800/30 rounded-bl-full -mr-4 -mt-4 transition-transform group-hover:scale-110"></div>
               <h3 className="text-stone-400 text-sm font-medium mb-1">Bebidas/Otros</h3>
