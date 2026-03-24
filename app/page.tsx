@@ -9,9 +9,9 @@ export default function POSTerminal() {
   const [productos, setProductos] = useState<Producto[]>([]);
   const [busqueda, setBusqueda] = useState('');
   const [productoSeleccionado, setProductoSeleccionado] = useState<Producto | null>(null);
-  const [cantidad, setCantidad] = useState<string>(''); // Peso Real o Unidades
-  const [ajuste, setAjuste] = useState<string>(''); // Stock de Cortesía a restar del total cobrado
-  const [modoTeclado, setModoTeclado] = useState<'cantidad' | 'ajuste'>('cantidad');
+  const [cantidadReal, setCantidadReal] = useState<string>(''); // Peso Real o Unidades
+  const [totalCobrado, setTotalCobrado] = useState<string>(''); // Dinero Real a cobrar
+  const [campoActivo, setCampoActivo] = useState<'peso' | 'precio'>('peso');
   const [loading, setLoading] = useState(false);
 
   // Tabs de navegación superior
@@ -55,72 +55,68 @@ export default function POSTerminal() {
   const agregarAlTeclado = (valor: string) => {
     if (!productoSeleccionado) return;
     
-    if (modoTeclado === 'cantidad') {
+    if (campoActivo === 'peso') {
       if (productoSeleccionado.categoria === 'unidad' && valor === '.') return;
-      if (cantidad.includes('.') && valor === '.') return;
-      setCantidad(prev => prev + valor);
+      if (cantidadReal.includes('.') && valor === '.') return;
+      
+      const nuevoPeso = cantidadReal + valor;
+      setCantidadReal(nuevoPeso);
+      
+      // Sugerir precio automáticamente basado en el nuevo peso
+      if (productoSeleccionado.precio) {
+        setTotalCobrado((Number(nuevoPeso) * productoSeleccionado.precio).toFixed(2).replace(/\.00$/, ''));
+      }
     } else {
-      if (productoSeleccionado.categoria === 'unidad' && valor === '.') return;
-      if (ajuste.includes('.') && valor === '.') return;
-      setAjuste(prev => prev + valor);
+      if (totalCobrado.includes('.') && valor === '.') return;
+      setTotalCobrado(prev => prev + valor);
     }
   };
 
   const borrarDelTeclado = () => {
-    if (modoTeclado === 'cantidad') {
-      setCantidad(prev => prev.slice(0, -1));
+    if (campoActivo === 'peso') {
+      const nuevoPeso = cantidadReal.slice(0, -1);
+      setCantidadReal(nuevoPeso);
+      if (productoSeleccionado && productoSeleccionado.precio) {
+        setTotalCobrado(nuevoPeso ? (Number(nuevoPeso) * productoSeleccionado.precio).toFixed(2).replace(/\.00$/, '') : '');
+      }
     } else {
-      setAjuste(prev => prev.slice(0, -1));
+      setTotalCobrado(prev => prev.slice(0, -1));
     }
   };
 
-  const getCantidadesCalculadas = () => {
-    const cantReal = Number(cantidad) || 0;
-    const cantAjuste = Number(ajuste) || 0;
-    const cantCobrar = Math.max(0, cantReal - cantAjuste);
-    const precioUnitario = productoSeleccionado?.precio || 0;
-    const total = cantCobrar * precioUnitario;
-    return { cantReal, cantCobrar, total };
-  };
-
   const procesarVenta = async () => {
-    if (!productoSeleccionado || !cantidad || isNaN(Number(cantidad))) return;
+    if (!productoSeleccionado || !cantidadReal || isNaN(Number(cantidadReal))) return;
     
-    const { cantReal, total } = getCantidadesCalculadas();
-    if (cantReal <= 0) return;
+    const cantNumeric = Number(cantidadReal) || 0;
+    const totalNumeric = Number(totalCobrado) || 0;
+    
+    if (cantNumeric <= 0) return;
 
     setLoading(true);
 
     try {
-      // 1. Guardar la venta (cantReal es lo que se deduce del stock al invocar el trigger SQL)
-      // Nota: El trigger actualizará el stock quitando cantReal.
-      const cantAjuste = Number(ajuste) || 0;
-      const ajusteEuros = cantAjuste * (productoSeleccionado.precio || 0);
-
       const { error } = await supabase.from('ventas').insert([
         { 
           producto_id: productoSeleccionado.id, 
-          cantidad: cantReal, 
-          total: total,
-          ajuste_peso: cantAjuste,
-          ajuste_euros: ajusteEuros
+          cantidad_real: cantNumeric, 
+          total_cobrado: totalNumeric
         }
       ]);
       
       if (error) throw error;
 
-      // 2. UI Optimista
+      // UI Optimista
       setProductos(prev => prev.map(p => 
-        p.id === productoSeleccionado.id ? { ...p, stock: Number((p.stock - cantReal).toFixed(2)) } : p
+        p.id === productoSeleccionado.id ? { ...p, stock: Number((p.stock - cantNumeric).toFixed(2)) } : p
       ));
 
-      alert(`✅ Venta Exitosa: ${cantReal} ${productoSeleccionado.categoria === 'peso' ? 'g' : 'uds'} de ${productoSeleccionado.nombre} por ${total.toFixed(2)}€`);
+      alert(`✅ Venta Exitosa: ${cantNumeric} ${productoSeleccionado.categoria === 'peso' ? 'g' : 'uds'} de ${productoSeleccionado.nombre} por ${totalNumeric.toFixed(2)}€`);
       
       // Limpiar
       setProductoSeleccionado(null);
-      setCantidad('');
-      setAjuste('');
-      setModoTeclado('cantidad');
+      setCantidadReal('');
+      setTotalCobrado('');
+      setCampoActivo('peso');
     } catch (error) {
       console.error('Error al cobrar:', error);
       alert('❌ Error al registrar la venta');
@@ -128,8 +124,6 @@ export default function POSTerminal() {
       setLoading(false);
     }
   };
-
-  const { cantReal, cantCobrar, total } = getCantidadesCalculadas();
 
   // Escuchar Teclado Físico
   useEffect(() => {
@@ -140,20 +134,26 @@ export default function POSTerminal() {
       }
 
       if (e.key === 'Escape') {
-        // Deseleccionar
         setProductoSeleccionado(null);
-        setCantidad('');
-        setAjuste('');
-        setModoTeclado('cantidad');
+        setCantidadReal('');
+        setTotalCobrado('');
+        setCampoActivo('peso');
+        return;
+      }
+      
+      if (!productoSeleccionado) return;
+
+      if (e.key === 'Tab' || e.key === 'ArrowRight' || e.key === 'ArrowLeft') {
+        e.preventDefault();
+        setCampoActivo(prev => prev === 'peso' ? 'precio' : 'peso');
         return;
       }
 
-      if (!productoSeleccionado) return;
-
-      // Omitir comportamientos por defecto que puedan fastidiar
       if (e.key === 'Enter') {
         e.preventDefault();
-        if (cantReal > 0 && !loading && total >= 0) {
+        const cantNumeric = Number(cantidadReal);
+        const totalNumeric = Number(totalCobrado);
+        if (cantNumeric > 0 && !loading && totalNumeric >= 0) {
           procesarVenta();
         }
       } else if (e.key === 'Backspace') {
@@ -165,13 +165,13 @@ export default function POSTerminal() {
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [productoSeleccionado, cantidad, ajuste, modoTeclado, loading, cantReal, total]);
+  }, [productoSeleccionado, cantidadReal, totalCobrado, campoActivo, loading]);
 
   return (
     <div className="min-h-[100dvh] bg-stone-950 text-stone-100 p-4 font-sans flex flex-col selection:bg-emerald-500/30">
       <header className="mb-4 flex flex-row justify-between items-center">
         <h1 className="text-3xl font-black bg-gradient-to-r from-emerald-400 to-green-600 bg-clip-text text-transparent">
-          EXOTIC OS
+          EXOTIC HUB
         </h1>
         <Link href="/admin" aria-label="Panel de Administración" className="p-3 text-stone-600 hover:text-emerald-400 hover:bg-stone-900 active:bg-stone-800 transition-all rounded-2xl flex items-center justify-center shrink-0 disabled:opacity-50">
           <svg xmlns="http://www.w3.org/2000/svg" className="h-7 w-7" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -230,9 +230,9 @@ export default function POSTerminal() {
                   key={prod.id}
                   onClick={() => { 
                     setProductoSeleccionado(prod); 
-                    setCantidad(''); 
-                    setAjuste('');
-                    setModoTeclado('cantidad');
+                    setCantidadReal(''); 
+                    setTotalCobrado('');
+                    setCampoActivo('peso');
                   }}
                   className={`w-full text-left p-4 rounded-2xl border-2 transition-all active:scale-[0.98] ${
                     esSeleccionado 
@@ -272,73 +272,77 @@ export default function POSTerminal() {
         <section className="bg-stone-900 border border-stone-800 rounded-3xl p-5 flex flex-col justify-between lg:col-span-5">
           <div>
             {/* Display Numérico Avanzado */}
-            <div className={`rounded-2xl p-4 mb-6 relative overflow-hidden flex flex-col items-center justify-center border-2 transition-colors ${
+            <div className={`rounded-2xl p-4 mb-4 relative overflow-hidden flex flex-col items-center justify-center border-2 transition-colors ${
               productoSeleccionado ? 'bg-stone-950 border-emerald-500/30' : 'bg-stone-950 border-stone-800 dashed'
             }`}>
-              
-              {/* Selectores de modo teclado */}
-              {productoSeleccionado && productoSeleccionado.categoria === 'peso' && (
-                <div className="absolute top-3 left-3 flex gap-2">
-                  <button onClick={() => setModoTeclado('cantidad')} className={`px-4 py-1.5 text-xs font-bold rounded-lg transition-all ${modoTeclado === 'cantidad' ? 'bg-emerald-600 text-white shadow-md' : 'bg-stone-800 text-stone-400 hover:bg-stone-700'}`}>PESO REAL</button>
-                  <button onClick={() => setModoTeclado('ajuste')} className={`px-4 py-1.5 text-xs font-bold rounded-lg transition-all ${modoTeclado === 'ajuste' ? 'bg-amber-600 text-white shadow-md' : 'bg-stone-800 text-stone-400 hover:bg-stone-700'}`}>CORTESÍA / AJUSTE</button>
-                </div>
-              )}
-
               {productoSeleccionado ? (
-                <div className="w-full text-center mt-8">
-                  <h2 className="text-stone-400 text-sm font-medium uppercase tracking-widest">{productoSeleccionado.nombre}</h2>
+                <div className="w-full text-center">
+                  <h2 className="text-stone-400 text-sm font-medium uppercase tracking-widest mb-4">{productoSeleccionado.nombre}</h2>
                   
-                  {/* Desglose de Pesos */}
-                  <div className="mt-2 text-stone-500 text-sm flex justify-center gap-6">
-                    <div>Sale Bote: <span className={`font-mono ${modoTeclado === 'cantidad' ? 'text-white' : 'text-stone-400'}`}>{cantidad || '0'}</span></div>
-                    {productoSeleccionado.categoria === 'peso' && ajuste && (
-                      <div className="text-amber-400">Restar: <span className={`font-mono font-bold ${modoTeclado === 'ajuste' ? 'text-white' : 'text-amber-400'}`}>-{ajuste}</span></div>
-                    )}
-                  </div>
+                  <div className="flex flex-row justify-center gap-4 w-full px-2">
+                    {/* Input Falso: Peso Real */}
+                    <div 
+                      onClick={() => setCampoActivo('peso')}
+                      className={`flex-1 p-3 rounded-xl border-2 transition-all cursor-pointer flex flex-col items-center justify-center ${
+                        campoActivo === 'peso' ? 'border-emerald-500 bg-emerald-900/20' : 'border-stone-800 bg-stone-900 hover:border-stone-700'
+                      }`}
+                    >
+                      <span className="text-[10px] uppercase font-bold text-stone-500 mb-1">Sale (Peso/Ud)</span>
+                      <div className={`text-2xl font-mono font-black ${campoActivo === 'peso' ? 'text-emerald-400' : 'text-stone-300'}`}>
+                        {cantidadReal || '0'} <span className="text-xs text-stone-600 font-sans">{productoSeleccionado.categoria === 'peso' ? 'g' : 'uds'}</span>
+                      </div>
+                    </div>
 
-                  {/* Peso Final a Cobrar */}
-                  <div className="text-5xl font-mono font-black text-emerald-400 tracking-tight flex justify-center items-baseline gap-2 mt-3">
-                    {cantCobrar > 0 ? cantCobrar.toFixed(2).replace(/\.00$/, '') : '0'} 
-                    <span className="text-2xl text-emerald-600 font-sans">
-                      {productoSeleccionado.categoria === 'peso' ? 'g' : 'uds'}
-                    </span>
+                    {/* Input Falso: Dinero */}
+                    <div 
+                      onClick={() => setCampoActivo('precio')}
+                      className={`flex-1 p-3 rounded-xl border-2 transition-all cursor-pointer flex flex-col items-center justify-center ${
+                        campoActivo === 'precio' ? 'border-emerald-500 bg-emerald-900/20' : 'border-stone-800 bg-stone-900 hover:border-stone-700'
+                      }`}
+                    >
+                      <span className="text-[10px] uppercase font-bold text-stone-500 mb-1">Total a Cobrar</span>
+                      <div className={`text-2xl font-mono font-black ${campoActivo === 'precio' ? 'text-emerald-400' : 'text-stone-300'}`}>
+                        {totalCobrado || '0'} <span className="text-xs text-stone-600 font-sans">€</span>
+                      </div>
+                    </div>
                   </div>
+                  <div className="mt-3 text-[10px] text-stone-500 font-medium">Pulsa TAB o Flechas para cambiar de campo</div>
                 </div>
               ) : (
-                <p className="text-stone-600 font-medium text-lg h-32 flex items-center">Selecciona un producto</p>
+                <p className="text-stone-600 font-medium text-lg h-32 flex items-center justify-center">Selecciona un producto</p>
               )}
             </div>
 
-            {/* Teclado Táctil */}
-            <div className="grid grid-cols-3 gap-3 mb-6">
+            {/* Teclado Táctil Mejorado y Pequeño */}
+            <div className="grid grid-cols-3 gap-2 sm:gap-3 mb-4">
               {[1, 2, 3, 4, 5, 6, 7, 8, 9].map(num => (
                 <button 
                   key={num} 
                   onClick={() => agregarAlTeclado(num.toString())}
                   disabled={!productoSeleccionado}
-                  className="bg-stone-800 hover:bg-stone-700 active:bg-stone-600 text-3xl font-semibold h-16 sm:h-20 rounded-2xl transition-all disabled:opacity-30 disabled:scale-100 active:scale-95 shadow-sm"
+                  className="bg-stone-800 hover:bg-stone-700 active:bg-stone-600 text-2xl font-semibold h-14 rounded-xl transition-all disabled:opacity-30 disabled:scale-100 active:scale-95 shadow-sm"
                 >
                   {num}
                 </button>
               ))}
               <button 
                 onClick={() => agregarAlTeclado('.')}
-                disabled={!productoSeleccionado || productoSeleccionado.categoria === 'unidad'}
-                className="bg-stone-800 hover:bg-stone-700 active:bg-stone-600 text-4xl font-semibold h-16 sm:h-20 rounded-2xl transition-all disabled:opacity-30 active:scale-95 shadow-sm"
+                disabled={!productoSeleccionado || (campoActivo === 'peso' && productoSeleccionado.categoria === 'unidad')}
+                className="bg-stone-800 hover:bg-stone-700 active:bg-stone-600 text-3xl font-semibold h-14 rounded-xl transition-all disabled:opacity-30 active:scale-95 shadow-sm"
               >
                 .
               </button>
               <button 
                 onClick={() => agregarAlTeclado('0')}
                 disabled={!productoSeleccionado}
-                className="bg-stone-800 hover:bg-stone-700 active:bg-stone-600 text-3xl font-semibold h-16 sm:h-20 rounded-2xl transition-all disabled:opacity-30 active:scale-95 shadow-sm"
+                className="bg-stone-800 hover:bg-stone-700 active:bg-stone-600 text-2xl font-semibold h-14 rounded-xl transition-all disabled:opacity-30 active:scale-95 shadow-sm"
               >
                 0
               </button>
               <button 
                 onClick={borrarDelTeclado}
                 disabled={!productoSeleccionado}
-                className="bg-stone-800 hover:bg-rose-900/40 active:bg-rose-900 text-stone-400 hover:text-rose-400 h-16 sm:h-20 rounded-2xl transition-all disabled:opacity-30 active:scale-95 shadow-sm flex items-center justify-center border border-transparent"
+                className="bg-stone-800 hover:bg-rose-900/40 active:bg-rose-900 text-stone-400 hover:text-rose-400 h-14 rounded-xl transition-all disabled:opacity-30 active:scale-95 shadow-sm flex items-center justify-center border border-transparent font-bold text-sm tracking-wider"
               >
                 ← BORRAR
               </button>
@@ -346,20 +350,13 @@ export default function POSTerminal() {
           </div>
 
           <div className="space-y-4">
-            {/* Total a cobrar mostrado sobre el botón */}
-            <div className="flex justify-between items-end px-2">
-              <span className="text-stone-400 text-lg">Total a pagar:</span>
-              <span className="text-4xl font-bold text-white">
-                {total > 0 ? total.toFixed(2) : '0.00'}€
-              </span>
-            </div>
-
             <button
               onClick={procesarVenta}
-              disabled={!productoSeleccionado || cantReal <= 0 || loading || total < 0}
-              className="w-full bg-emerald-600 hover:bg-emerald-500 active:bg-emerald-700 disabled:bg-stone-800 disabled:text-stone-500 text-white text-xl lg:text-2xl font-black h-20 rounded-2xl transition-all shadow-lg hover:shadow-emerald-500/20 active:scale-[0.98] border border-emerald-500/50 disabled:border-transparent"
+              disabled={!productoSeleccionado || Number(cantidadReal) <= 0 || loading || Number(totalCobrado) < 0}
+              className="w-full flex flex-col justify-center items-center bg-emerald-600 hover:bg-emerald-500 active:bg-emerald-700 disabled:bg-stone-800 disabled:text-stone-500 text-white h-[4.5rem] rounded-2xl transition-all shadow-lg hover:shadow-emerald-500/20 active:scale-[0.98] border border-emerald-500/50 disabled:border-transparent"
             >
-              {loading ? 'REGISTRANDO...' : 'COBRAR'}
+              <span className="text-xl font-black">{loading ? 'REGISTRANDO...' : 'PROCESAR VENTA'}</span>
+              <span className="text-xs font-semibold uppercase tracking-widest opacity-80 mt-1">{Number(totalCobrado) > 0 ? `${Number(totalCobrado).toFixed(2)}€` : '0.00€'}</span>
             </button>
           </div>
         </section>

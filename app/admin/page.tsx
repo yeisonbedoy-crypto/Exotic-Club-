@@ -10,10 +10,8 @@ type VentaHistorial = {
   producto_nombre: string;
   producto_tipo: string;
   producto_subtipo: string | null;
-  cantidad: number;
-  total_euros: number;
-  ajuste_peso: number;
-  ajuste_euros: number;
+  cantidad_real: number;
+  total_cobrado: number;
   fecha_hora: string;
 };
 
@@ -36,7 +34,7 @@ export default function AdminPage() {
   // DASHBOARD
   const [rangoTiempo, setRangoTiempo] = useState<'hoy' | '7dias' | 'mes'>('hoy');
   const [dashboardLoading, setDashboardLoading] = useState(false);
-  const [dashboardStats, setDashboardStats] = useState({ ventasTotales: 0, volumenTotal: 0, cortesiaTotal: 0, unidadesTotales: 0, inversionCortesia: 0 });
+  const [dashboardStats, setDashboardStats] = useState({ ventasTotales: 0, volumenTotal: 0, unidadesTotales: 0 });
   const [topProductos, setTopProductos] = useState<{nombre: string, total: number}[]>([]);
 
   // Formulario Producto
@@ -115,33 +113,27 @@ export default function AdminPage() {
       
       let vTotales = 0;
       let volTotal = 0;
-      let cTotal = 0;
       let uTotales = 0;
-      let invCortesia = 0;
       
       const prodMap: Record<string, number> = {};
 
       ventasArr.forEach(v => {
-        vTotales += v.total_euros;
-        cTotal += v.ajuste_peso;
-        invCortesia += v.ajuste_euros;
+        vTotales += v.total_cobrado;
         
         if (v.producto_tipo === 'weed' || v.producto_tipo === 'extraccion') {
-          volTotal += v.cantidad; // cantidad ya representa el peso_real en la BD
+          volTotal += v.cantidad_real;
         } else {
-          uTotales += v.cantidad;
+          uTotales += v.cantidad_real;
         }
 
         const prodName = v.producto_subtipo ? `${v.producto_nombre} (${v.producto_subtipo})` : v.producto_nombre;
-        prodMap[prodName] = (prodMap[prodName] || 0) + v.total_euros;
+        prodMap[prodName] = (prodMap[prodName] || 0) + v.total_cobrado;
       });
 
       setDashboardStats({
         ventasTotales: vTotales,
         volumenTotal: volTotal,
-        cortesiaTotal: cTotal,
-        unidadesTotales: uTotales,
-        inversionCortesia: invCortesia
+        unidadesTotales: uTotales
       });
 
       const top = Object.entries(prodMap)
@@ -504,17 +496,12 @@ export default function AdminPage() {
                         </div>
                       </td>
                       <td className="py-5">
-                        <div className="font-mono text-stone-300">{v.cantidad}</div>
-                        {v.ajuste_peso > 0 && (
-                           <div className="text-[10px] text-rose-400 font-mono mt-1 px-1.5 py-0.5 bg-rose-500/10 rounded border border-rose-500/20 inline-block font-bold">
-                             CORTESÍA -{v.ajuste_peso}
-                           </div>
-                        )}
+                        <div className="font-mono text-stone-300">{v.cantidad_real}</div>
                       </td>
                       <td className="py-5 font-bold text-right pr-4 text-lg">
                         <div className="flex justify-end gap-3 items-center">
                           <button 
-                            onClick={() => handleAnularVenta(v.venta_id, v.producto_nombre, v.total_euros)}
+                            onClick={() => handleAnularVenta(v.venta_id, v.producto_nombre, v.total_cobrado)}
                             className="opacity-0 group-hover:opacity-100 transition-opacity p-2 text-stone-500 hover:text-rose-400 hover:bg-rose-500/10 rounded-lg"
                             title="Anular venta y devolver stock"
                           >
@@ -523,12 +510,7 @@ export default function AdminPage() {
                             </svg>
                           </button>
                           <div className="text-right">
-                            <div className="text-emerald-400">+{v.total_euros.toFixed(2)}€</div>
-                            {v.ajuste_euros > 0 && (
-                              <div className="text-xs text-rose-400 font-medium mt-0.5">
-                                -{v.ajuste_euros.toFixed(2)}€
-                              </div>
-                            )}
+                            <div className="text-emerald-400">+{v.total_cobrado.toFixed(2)}€</div>
                           </div>
                         </div>
                       </td>
@@ -563,44 +545,24 @@ export default function AdminPage() {
             </div>
           </div>
 
-          <div className="grid grid-cols-2 lg:grid-cols-5 gap-4 md:gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             <div className="bg-stone-900 border border-stone-800 rounded-3xl p-6 shadow-xl relative overflow-hidden group">
               <div className="absolute top-0 right-0 w-24 h-24 bg-emerald-500/5 rounded-bl-full -mr-4 -mt-4 transition-transform group-hover:scale-110"></div>
-              <h3 className="text-stone-400 text-sm font-medium mb-1">Ventas Totales</h3>
+              <h3 className="text-stone-400 text-sm font-medium mb-1">Ingresos Totales</h3>
               {dashboardLoading ? (
                 <div className="h-10 bg-stone-800 rounded animate-pulse w-3/4 mt-2"></div>
               ) : (
-                <p className="text-3xl md:text-4xl font-black text-emerald-400">{dashboardStats.ventasTotales.toFixed(2)}€</p>
-              )}
-            </div>
-            
-            <div className="bg-stone-900 border border-rose-500/20 rounded-3xl p-6 shadow-xl relative overflow-hidden group">
-              <div className="absolute top-0 right-0 w-24 h-24 bg-rose-500/10 rounded-bl-full -mr-4 -mt-4 transition-transform group-hover:scale-110"></div>
-              <h3 className="text-rose-400 text-sm font-medium mb-1">Inversión Cortesías</h3>
-              {dashboardLoading ? (
-                <div className="h-10 bg-stone-800 rounded animate-pulse w-3/4 mt-2"></div>
-              ) : (
-                <p className="text-3xl md:text-4xl font-black text-rose-500">{dashboardStats.inversionCortesia.toFixed(2)}€</p>
+                <p className="text-3xl md:text-5xl font-black text-emerald-400">{dashboardStats.ventasTotales.toFixed(2)}€</p>
               )}
             </div>
 
             <div className="bg-stone-900 border border-stone-800 rounded-3xl p-6 shadow-xl relative overflow-hidden group">
               <div className="absolute top-0 right-0 w-24 h-24 bg-stone-800/30 rounded-bl-full -mr-4 -mt-4 transition-transform group-hover:scale-110"></div>
-              <h3 className="text-stone-400 text-sm font-medium mb-1">Volumen (Flores/Extr)</h3>
+              <h3 className="text-stone-400 text-sm font-medium mb-1">Salida de Stock (Flores/Extr)</h3>
               {dashboardLoading ? (
                 <div className="h-10 bg-stone-800 rounded animate-pulse w-1/2 mt-2"></div>
               ) : (
-                <p className="text-3xl md:text-4xl font-black text-stone-100">{dashboardStats.volumenTotal.toFixed(2)}<span className="text-xl md:text-2xl text-stone-600 ml-1">g</span></p>
-              )}
-            </div>
-            
-            <div className="bg-stone-900 border border-stone-800 rounded-3xl p-6 shadow-xl relative overflow-hidden group">
-              <div className="absolute top-0 right-0 w-24 h-24 bg-rose-500/5 rounded-bl-full -mr-4 -mt-4 transition-transform group-hover:scale-110"></div>
-              <h3 className="text-stone-400 text-sm font-medium mb-1">Déficit (Regalado)</h3>
-              {dashboardLoading ? (
-                <div className="h-10 bg-stone-800 rounded animate-pulse w-1/2 mt-2"></div>
-              ) : (
-                <p className="text-3xl md:text-4xl font-black text-rose-400">{dashboardStats.cortesiaTotal.toFixed(2)}<span className="text-xl md:text-2xl text-rose-500/50 ml-1">g</span></p>
+                <p className="text-3xl md:text-5xl font-black text-stone-100">{dashboardStats.volumenTotal.toFixed(2)}<span className="text-xl md:text-2xl text-stone-600 ml-1">g</span></p>
               )}
             </div>
             
@@ -610,7 +572,7 @@ export default function AdminPage() {
               {dashboardLoading ? (
                 <div className="h-10 bg-stone-800 rounded animate-pulse w-1/3 mt-2"></div>
               ) : (
-                <p className="text-3xl md:text-4xl font-black text-stone-100">{dashboardStats.unidadesTotales}<span className="text-xl md:text-2xl text-stone-600 ml-1">ud</span></p>
+                <p className="text-3xl md:text-5xl font-black text-stone-100">{dashboardStats.unidadesTotales}<span className="text-xl md:text-2xl text-stone-600 ml-1">ud</span></p>
               )}
             </div>
           </div>
