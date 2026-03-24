@@ -145,7 +145,13 @@ export default function POSTerminal() {
 
       if (e.key === 'Tab' || e.key === 'ArrowRight' || e.key === 'ArrowLeft') {
         e.preventDefault();
-        setCampoActivo(prev => prev === 'peso' ? 'precio' : 'peso');
+        setCampoActivo(prev => {
+          if (prev === 'peso') {
+            setTotalCobrado(''); // Limpiar al pasar a precio
+            return 'precio';
+          }
+          return 'peso';
+        });
         return;
       }
 
@@ -295,7 +301,10 @@ export default function POSTerminal() {
 
                     {/* Input Falso: Dinero */}
                     <div 
-                      onClick={() => setCampoActivo('precio')}
+                      onClick={() => {
+                        if (campoActivo === 'peso') setTotalCobrado(''); // Limpiar si venimos del peso
+                        setCampoActivo('precio');
+                      }}
                       className={`flex-1 p-3 rounded-xl border-2 transition-all cursor-pointer flex flex-col items-center justify-center ${
                         campoActivo === 'precio' ? 'border-emerald-500 bg-emerald-900/20' : 'border-stone-800 bg-stone-900 hover:border-stone-700'
                       }`}

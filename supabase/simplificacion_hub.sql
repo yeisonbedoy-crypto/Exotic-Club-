@@ -2,11 +2,20 @@
 -- 1. Eliminar vistas y dependencias
 DROP VIEW IF EXISTS vista_registro_ventas;
 
--- 2. Simplificar tabla de ventas
-ALTER TABLE ventas DROP COLUMN IF EXISTS ajuste_peso;
-ALTER TABLE ventas DROP COLUMN IF EXISTS ajuste_euros;
-ALTER TABLE ventas RENAME COLUMN cantidad TO cantidad_real;
-ALTER TABLE ventas RENAME COLUMN total TO total_cobrado;
+-- 2. Simplificar tabla de ventas (Cambiando nombres de manera segura)
+DO $$ 
+BEGIN 
+    ALTER TABLE ventas DROP COLUMN IF EXISTS ajuste_peso;
+    ALTER TABLE ventas DROP COLUMN IF EXISTS ajuste_euros;
+    
+    IF EXISTS(SELECT * FROM information_schema.columns WHERE table_name='ventas' AND column_name='cantidad') THEN
+        ALTER TABLE ventas RENAME COLUMN cantidad TO cantidad_real;
+    END IF;
+
+    IF EXISTS(SELECT * FROM information_schema.columns WHERE table_name='ventas' AND column_name='total') THEN
+        ALTER TABLE ventas RENAME COLUMN total TO total_cobrado;
+    END IF;
+END $$;
 
 -- 3. Recrear Triggers (cambiando 'cantidad' por 'cantidad_real')
 -- Función para restar stock de forma automática
