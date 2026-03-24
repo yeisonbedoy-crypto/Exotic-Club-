@@ -1,4 +1,4 @@
-# Club POS Terminal
+# EXOTIC OS
 
 ¡Este proyecto está configurado y listo para subirse a GitHub y desplegarse en Vercel de forma automática!
 

@@ -5,7 +5,7 @@ import "./globals.css";
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: "CLUB POS Terminal",
+  title: "EXOTIC OS",
   description: "Terminal de Punto de Venta para Club Social",
   manifest: "/manifest.json",
 };

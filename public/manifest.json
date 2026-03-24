@@ -1,6 +1,6 @@
 {
-  "name": "Club POS Terminal",
-  "short_name": "ClubPOS",
+  "name": "EXOTIC OS",
+  "short_name": "EXOTIC OS",
   "description": "Terminal de Punto de Venta para el Club Social Cannábico",
   "start_url": "/",
   "display": "standalone",

@@ -86,7 +86,7 @@ export default function POSTerminal() {
     <div className="min-h-[100dvh] bg-stone-950 text-stone-100 p-4 font-sans flex flex-col selection:bg-emerald-500/30">
       <header className="mb-4 flex flex-row justify-between items-center">
         <h1 className="text-3xl font-black bg-gradient-to-r from-emerald-400 to-green-600 bg-clip-text text-transparent">
-          CLUB POS Terminal
+          EXOTIC OS
         </h1>
         <Link href="/admin" aria-label="Panel de Administración" className="p-3 text-stone-600 hover:text-emerald-400 hover:bg-stone-900 active:bg-stone-800 transition-all rounded-2xl flex items-center justify-center shrink-0 disabled:opacity-50">
           <svg xmlns="http://www.w3.org/2000/svg" className="h-7 w-7" fill="none" viewBox="0 0 24 24" stroke="currentColor">
